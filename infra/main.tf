@@ -1,4 +1,32 @@
-# 1. VPC y Redes (Se mantienen igual)
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = "us-east-1"
+}
+
+data "aws_ami" "amazon_linux" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["amzn2-ami-hvm-*-x86_64-gp2"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+}
+
+# 1. VPC y Redes
 resource "aws_vpc" "proyec_sem_2_vpc" {
   cidr_block           = "10.0.0.0/16"
   enable_dns_hostnames = true
@@ -33,11 +61,9 @@ resource "aws_route_table_association" "public_assoc" {
 }
 
 # 2. Security Groups
-
-# SG Frontend: Acceso público
 resource "aws_security_group" "sg_frontend" {
-  name        = "sg_frontend_picker"
-  vpc_id      = aws_vpc.proyec_sem_2_vpc.id
+  name   = "sg_frontend_picker"
+  vpc_id = aws_vpc.proyec_sem_2_vpc.id
 
   ingress {
     from_port   = 80
@@ -61,13 +87,11 @@ resource "aws_security_group" "sg_frontend" {
   }
 }
 
-# SG Backends: Permite tráfico desde el Frontend en puertos comunes de API
 resource "aws_security_group" "sg_backends" {
   name        = "sg_backends_picker"
   description = "Seguridad para microservicios de Despachos y Ventas"
   vpc_id      = aws_vpc.proyec_sem_2_vpc.id
 
-  # Puerto para Backend Ventas (ejemplo: 3000)
   ingress {
     from_port       = 3000
     to_port         = 3000
@@ -75,7 +99,6 @@ resource "aws_security_group" "sg_backends" {
     security_groups = [aws_security_group.sg_frontend.id]
   }
 
-  # Puerto para Backend Despachos (ejemplo: 5000)
   ingress {
     from_port       = 5000
     to_port         = 5000
@@ -99,8 +122,6 @@ resource "aws_security_group" "sg_backends" {
 }
 
 # 3. Instancias EC2
-
-# Frontend
 resource "aws_instance" "frontend" {
   ami                    = data.aws_ami.amazon_linux.id
   instance_type          = "t2.micro"
@@ -108,13 +129,10 @@ resource "aws_instance" "frontend" {
   vpc_security_group_ids = [aws_security_group.sg_frontend.id]
   key_name               = "vockey"
   iam_instance_profile   = "LabInstanceProfile"
-
-  user_data = fileexists("frontend-userdata.sh") ? file("frontend-userdata.sh") : null
-
-  tags = { Name = "Frontend-Picker" }
+  user_data              = fileexists("frontend-userdata.sh") ? file("frontend-userdata.sh") : null
+  tags                   = { Name = "Frontend-Picker" }
 }
 
-# Backend Ventas
 resource "aws_instance" "backend_ventas" {
   ami                    = data.aws_ami.amazon_linux.id
   instance_type          = "t2.micro"
@@ -122,11 +140,9 @@ resource "aws_instance" "backend_ventas" {
   vpc_security_group_ids = [aws_security_group.sg_backends.id]
   key_name               = "vockey"
   iam_instance_profile   = "LabInstanceProfile"
-
-  tags = { Name = "Backend-Ventas" }
+  tags                   = { Name = "Backend-Ventas" }
 }
 
-# Backend Despachos
 resource "aws_instance" "backend_despachos" {
   ami                    = data.aws_ami.amazon_linux.id
   instance_type          = "t2.micro"
@@ -134,19 +150,5 @@ resource "aws_instance" "backend_despachos" {
   vpc_security_group_ids = [aws_security_group.sg_backends.id]
   key_name               = "vockey"
   iam_instance_profile   = "LabInstanceProfile"
-
-  tags = { Name = "Backend-Despachos" }
-}
-
-# 4. Outputs para conectar los servicios
-output "url_frontend" {
-  value = "http://${aws_instance.frontend.public_ip}"
-}
-
-output "endpoint_ventas_interno" {
-  value = "http://${aws_instance.backend_ventas.private_ip}:3000"
-}
-
-output "endpoint_despachos_interno" {
-  value = "http://${aws_instance.backend_despachos.private_ip}:5000"
+  tags                   = { Name = "Backend-Despachos" }
 }
