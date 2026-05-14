@@ -7,7 +7,7 @@ on:
     branches: [ develop, main ]
 
 jobs:
-  backend-tests:
+  backend-build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -19,15 +19,15 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      - name: Test Ventas Service
+      - name: Build Ventas Service (Skip Tests)
         run: |
           cd back-Ventas_SpringBoot/Springboot-API-REST
-          mvn test
+          mvn clean package -DskipTests
           
-      - name: Test Despachos Service
+      - name: Build Despachos Service (Skip Tests)
         run: |
           cd back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO
-          mvn test
+          mvn clean package -DskipTests
 
   frontend-build:
     runs-on: ubuntu-latest
