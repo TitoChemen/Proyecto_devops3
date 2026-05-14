@@ -127,7 +127,7 @@ resource "aws_instance" "frontend" {
   instance_type          = "t2.micro"
   subnet_id              = aws_subnet.public_subnet.id
   vpc_security_group_ids = [aws_security_group.sg_frontend.id]
-  key_name               = "vockey"
+  key_name               = var.key_name
   iam_instance_profile   = "LabInstanceProfile"
   user_data              = fileexists("frontend-userdata.sh") ? file("frontend-userdata.sh") : null
   tags                   = { Name = "Frontend-Picker" }
@@ -138,7 +138,7 @@ resource "aws_instance" "backend_ventas" {
   instance_type          = "t2.micro"
   subnet_id              = aws_subnet.public_subnet.id
   vpc_security_group_ids = [aws_security_group.sg_backends.id]
-  key_name               = "vockey"
+  key_name               = var.key_name
   iam_instance_profile   = "LabInstanceProfile"
   tags                   = { Name = "Backend-Ventas" }
 }
@@ -148,7 +148,7 @@ resource "aws_instance" "backend_despachos" {
   instance_type          = "t2.micro"
   subnet_id              = aws_subnet.public_subnet.id
   vpc_security_group_ids = [aws_security_group.sg_backends.id]
-  key_name               = "vockey"
+  key_name               = var.key_name
   iam_instance_profile   = "LabInstanceProfile"
   tags                   = { Name = "Backend-Despachos" }
 }
