@@ -1,14 +1,12 @@
-# Usamos una imagen base de Java 17
-FROM openjdk:17-jdk-slim
-
-# Directorio de trabajo dentro del contenedor
+# Etapa de construcción
+FROM maven:3.8.5-openjdk-17 AS build
 WORKDIR /app
+COPY . .
+RUN mvn clean package -DskipTests
 
-# Copiamos el archivo JAR generado por Maven (asegúrate de hacer mvn clean package primero)
-COPY target/*.jar app.jar
-
-# Exponemos el puerto que usa este microservicio (ajusta si es distinto)
+# Etapa de ejecución 
+FROM eclipse-temurin:17-jdk
+WORKDIR /app
+COPY --from=build /app/target/*.jar app.jar
 EXPOSE 8080
-
-# Comando para ejecutar la aplicación
 ENTRYPOINT ["java", "-jar", "app.jar"]

@@ -8,6 +8,11 @@ services:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
     ports:
       - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   despachos-db:
     image: mysql:8.0
@@ -16,6 +21,11 @@ services:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
     ports:
       - "3307:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   service-ventas:
     build: ./back-Ventas_SpringBoot/Springboot-API-REST
@@ -28,7 +38,8 @@ services:
       - DB_USERNAME=root
       - DB_PASSWORD=${DB_PASSWORD}
     depends_on:
-      - ventas-db
+      ventas-db:
+        condition: service_healthy
 
   service-despachos:
     build: ./back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO
@@ -41,12 +52,14 @@ services:
       - DB_USERNAME=root
       - DB_PASSWORD=${DB_PASSWORD}
     depends_on:
-      - despachos-db
+      despachos-db:
+        condition: service_healthy
 
   frontend:
     build: ./front_despacho
     ports:
-      - "5173:5173"
+      # Nginx usa el puerto 80 por dentro. Exponemos el 3000 por fuera como el profe.
+      - "3000:80"
     depends_on:
       - service-ventas
       - service-despachos
