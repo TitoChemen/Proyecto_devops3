@@ -19,15 +19,15 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      - name: Build Ventas Service (Skip Tests)
+      - name: Build Ventas Service (Force Skip Tests)
         run: |
           cd back-Ventas_SpringBoot/Springboot-API-REST
-          mvn clean package -DskipTests
+          mvn clean package -Dmaven.test.skip=true
           
-      - name: Build Despachos Service (Skip Tests)
+      - name: Build Despachos Service (Force Skip Tests)
         run: |
           cd back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO
-          mvn clean package -DskipTests
+          mvn clean package -Dmaven.test.skip=true
 
   frontend-build:
     runs-on: ubuntu-latest
