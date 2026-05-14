@@ -8,7 +8,7 @@ terraform {
 }
 
 provider "aws" {
-  region = "us-east-1"
+  region = var.region
 }
 
 data "aws_ami" "amazon_linux" {
@@ -124,7 +124,7 @@ resource "aws_security_group" "sg_backends" {
 # 3. Instancias EC2
 resource "aws_instance" "frontend" {
   ami                    = data.aws_ami.amazon_linux.id
-  instance_type          = "t2.micro"
+  instance_type          = var.instance_type
   subnet_id              = aws_subnet.public_subnet.id
   vpc_security_group_ids = [aws_security_group.sg_frontend.id]
   key_name               = var.key_name
@@ -135,7 +135,7 @@ resource "aws_instance" "frontend" {
 
 resource "aws_instance" "backend_ventas" {
   ami                    = data.aws_ami.amazon_linux.id
-  instance_type          = "t2.micro"
+  instance_type          = var.instance_type
   subnet_id              = aws_subnet.public_subnet.id
   vpc_security_group_ids = [aws_security_group.sg_backends.id]
   key_name               = var.key_name
@@ -145,7 +145,7 @@ resource "aws_instance" "backend_ventas" {
 
 resource "aws_instance" "backend_despachos" {
   ami                    = data.aws_ami.amazon_linux.id
-  instance_type          = "t2.micro"
+  instance_type          = var.instance_type
   subnet_id              = aws_subnet.public_subnet.id
   vpc_security_group_ids = [aws_security_group.sg_backends.id]
   key_name               = var.key_name
