@@ -1,78 +1,52 @@
 version: '3.8'
 
 services:
-  # El motor de la base de datos
-  db-mysql:
+  ventas-db:
     image: mysql:8.0
-    container_name: mysql_contenedor
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: sistema_ventas
+      MYSQL_DATABASE: db_ventas
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
     ports:
       - "3306:3306"
-    volumes:
-      - db_data:/var/lib/mysql
-    # ESTO ES CLAVE: Asegura que MySQL esté listo antes que las APIs
-    healthcheck:
-      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
-      timeout: 5s
-      retries: 10
-    networks:
-      - sistema-network
 
-  # Servicio de Ventas
-  ventas-api:
-    build: 
-      context: ./back-Ventas_SpringBoot/Springboot-API-REST
-      dockerfile: Dockerfile
-    container_name: ventas_app
+  despachos-db:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: db_despachos
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "3307:3306"
+
+  service-ventas:
+    build: ./back-Ventas_SpringBoot/Springboot-API-REST
     ports:
       - "8080:8080"
-    depends_on:
-      db-mysql:
-        condition: service_healthy # Espera a que el healthcheck pase
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:mysql://db-mysql:3306/sistema_ventas?allowPublicKeyRetrieval=true&useSSL=false
-      - SPRING_DATASOURCE_USERNAME=root
-      - SPRING_DATASOURCE_PASSWORD=root
-    networks:
-      - sistema-network
+      - DB_ENDPOINT=ventas-db
+      - DB_PORT=3306
+      - DB_NAME=db_ventas
+      - DB_USERNAME=root
+      - DB_PASSWORD=${DB_PASSWORD}
+    depends_on:
+      - ventas-db
 
-  # Servicio de Despachos
-  despachos-api:
-    build: 
-      context: ./back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO
-      dockerfile: Dockerfile
-    container_name: despachos_app
+  service-despachos:
+    build: ./back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO
     ports:
-      - "8081:8080"
-    depends_on:
-      db-mysql:
-        condition: service_healthy
+      - "8081:8081"
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:mysql://db-mysql:3306/sistema_ventas?allowPublicKeyRetrieval=true&useSSL=false
-      - SPRING_DATASOURCE_USERNAME=root
-      - SPRING_DATASOURCE_PASSWORD=root
-    networks:
-      - sistema-network
+      - DB_ENDPOINT=despachos-db
+      - DB_PORT=3306
+      - DB_NAME=db_despachos
+      - DB_USERNAME=root
+      - DB_PASSWORD=${DB_PASSWORD}
+    depends_on:
+      - despachos-db
 
-  # Frontend
   frontend:
-    build:
-      context: ./front_despacho
-      dockerfile: Dockerfile
-    container_name: front_app
+    build: ./front_despacho
     ports:
-      - "3000:80"
+      - "5173:5173"
     depends_on:
-      - ventas-api
-      - despachos-api
-    networks:
-      - sistema-network
-
-networks:
-  sistema-network:
-    driver: bridge
-
-volumes:
-  db_data:
+      - service-ventas
+      - service-despachos
