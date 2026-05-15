@@ -1,0 +1,71 @@
+name: CI & Dockerization
+
+on:
+  push:
+    branches: [ develop, main ]
+  pull_request:
+    branches: [ develop, main ]
+
+jobs:
+  # 1. Construcción del Backend (Spring Boot)
+  backend-build:
+    name: Backend Build (Springboot)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+
+      - name: Build backend
+        run: mvn clean package -DskipTests
+
+  # 2. Construcción del Frontend (React Vite)
+  frontend-build:
+    name: Frontend Build (React Vite)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build frontend
+        run: npm run build
+
+  # 3. Creación de Imágenes Docker
+  docker-packaging:
+    name: Dockerize Applications
+    needs: [backend-build, frontend-build] # Espera a que los builds terminen
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      # Build de la imagen del Backend usando el Dockerfile en la carpeta Docker
+      - name: Build Backend Docker Image
+        run: |
+          docker build -t mi-proyecto-backend:latest -f Docker/Dockerfile .
+        # Nota: Asegúrate de que el Dockerfile apunte correctamente a los archivos generados
+
+      # Build de la imagen del Frontend (puedes crear otro Dockerfile específico si lo necesitas)
+      - name: Build Frontend Docker Image
+        run: |
+          docker build -t mi-proyecto-frontend:latest ./frontend
