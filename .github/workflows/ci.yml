@@ -11,7 +11,6 @@ jobs:
     - name: Descargar Código
       uses: actions/checkout@v3
 
-    # Loguearse en AWS usando tus tokens del laboratorio
     - name: Configurar Credenciales de AWS
       uses: aws-actions/configure-aws-credentials@v2
       with:
@@ -20,12 +19,10 @@ jobs:
         aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
         aws-region: us-east-1
 
-    # Obtener la URL del registro ECR de tu cuenta
     - name: Loguearse en AWS ECR
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v1
 
-    # Buildear y subir las 3 imágenes usando las carpetas de tu Visual
     - name: Buildear y Publicar Imágenes en ECR
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -49,7 +46,6 @@ jobs:
     - name: Descargar Código para obtener el docker-compose
       uses: actions/checkout@v3
 
-    # Necesitamos las credenciales en esta etapa también para el docker login de la EC2
     - name: Configurar Credenciales de AWS
       uses: aws-actions/configure-aws-credentials@v2
       with:
@@ -61,7 +57,7 @@ jobs:
     - name: Copiar docker-compose a la EC2 por SCP
       uses: appleboy/scp-action@master
       with:
-        host: ${{ secrets.EC2_PUBLIC_IP }} # <--- CAMBIADO AQUÍ
+        host: ${{ secrets.EC2_PUBLIC_IP }}
         username: ec2-user
         key: ${{ secrets.EC2_SSH_KEY }}
         source: "docker-compose.yml"
@@ -70,14 +66,21 @@ jobs:
     - name: Ejecutar comandos en la EC2 por SSH
       uses: appleboy/ssh-action@master
       with:
-        host: ${{ secrets.EC2_PUBLIC_IP }} # <--- CAMBIADO AQUÍ
+        host: ${{ secrets.EC2_PUBLIC_IP }}
         username: ec2-user
         key: ${{ secrets.EC2_SSH_KEY }}
+        # 🔥 CHÁNTALE ESTO AQUÍ PARA PASARLE LOS TOKENS A LA MÁQUINA:
+        envs: AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,AWS_SESSION_TOKEN
         script: |
           cd /home/ec2-user/
           
-          # Loguear Docker de la EC2 en AWS ECR para que tenga permiso de descargar las imágenes
-          aws ecr get-login-password --region us-east-1 | sudo docker login --username AWS --password-stdin 767398017863.dkr.ecr.us-east-1.amazonaws.com
+          # Configurar los tokens en la sesión SSH actual para que el comando "aws" los lea
+          export AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}"
+          export AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+          export AWS_SESSION_TOKEN="${{ secrets.AWS_SESSION_TOKEN }}"
+          
+          # Loguear Docker de la EC2 en AWS ECR
+          aws ecr get-login-password --region us-east-1 | sudo docker login --username AWS --password-stdin $(aws sts get-caller-identity --query Account --output text).dkr.ecr.us-east-1.amazonaws.com
           
           # Descargar lo nuevo y levantar
           sudo docker compose pull
