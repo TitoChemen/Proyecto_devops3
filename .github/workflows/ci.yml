@@ -1,47 +1,84 @@
-name: CI/CD Pipeline
+name: Pipeline CI/CD DevOps - AWS ECR
 
 on:
   push:
-    branches: [ develop, main ]
-  pull_request:
-    branches: [ develop, main ]
+    branches: [ "deploy" ]
 
 jobs:
-  backend-build:
+  build-and-push:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      
-      - name: Set up JDK 17
-        uses: actions/setup-java@v3
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: 'maven'
+    - name: Descargar Código
+      uses: actions/checkout@v3
 
-      - name: Build Ventas Service (Force Skip Tests)
-        run: |
-          cd back-Ventas_SpringBoot/Springboot-API-REST
-          mvn clean package -Dmaven.test.skip=true
-          
-      - name: Build Despachos Service (Force Skip Tests)
-        run: |
-          cd back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO
-          mvn clean package -Dmaven.test.skip=true
+    # Loguearse en AWS usando tus tokens del laboratorio
+    - name: Configurar Credenciales de AWS
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+        aws-region: us-east-1
 
-  frontend-build:
+    # Obtener la URL del registro ECR de tu cuenta
+    - name: Loguearse en AWS ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+    # Buildear y subir las 3 imágenes usando las carpetas de tu Visual
+    - name: Buildear y Publicar Imágenes en ECR
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+      run: |
+        # 1. Frontend
+        docker build -t $ECR_REGISTRY/devops-u2-frontend:latest ./front_despacho
+        docker push $ECR_REGISTRY/devops-u2-frontend:latest
+
+        # 2. Backend Ventas
+        docker build -t $ECR_REGISTRY/devops-u2-backend-ventas:latest ./back-Ventas_SpringBoot/Springboot-API-REST
+        docker push $ECR_REGISTRY/devops-u2-backend-ventas:latest
+
+        # 3. Backend Despachos
+        docker build -t $ECR_REGISTRY/devops-u2-backend-despachos:latest ./back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO
+        docker push $ECR_REGISTRY/devops-u2-backend-despachos:latest
+
+  deploy-to-ec2:
+    needs: build-and-push
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: front_despacho/package-lock.json
+    - name: Descargar Código para obtener el docker-compose
+      uses: actions/checkout@v3
+
+    # Necesitamos las credenciales en esta etapa también para el docker login de la EC2
+    - name: Configurar Credenciales de AWS
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+        aws-region: us-east-1
+
+    - name: Copiar docker-compose a la EC2 por SCP
+      uses: appleboy/scp-action@master
+      with:
+        host: 32.192.213.217 # <--- TU IP PÚBLICA DE LA EC2 (La cambias por la tuya real)
+        username: ec2-user
+        key: ${{ secrets.EC2_SSH_KEY }}
+        source: "docker-compose.yml"
+        target: "/home/ec2-user/"
+
+    - name: Ejecutar comandos en la EC2 por SSH
+      uses: appleboy/ssh-action@master
+      with:
+        host: 32.192.213.217 # <--- LA MISMA IP PÚBLICA
+        username: ec2-user
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: |
+          cd /home/ec2-user/
           
-      - name: Build Frontend
-        run: |
-          cd front_despacho
-          npm install
-          npm run build
+          # Loguear Docker de la EC2 en AWS ECR para que tenga permiso de descargar las imágenes
+          aws ecr get-login-password --region us-east-1 | sudo docker login --username AWS --password-stdin 767398017863.dkr.ecr.us-east-1.amazonaws.com
+          
+          # Descargar lo nuevo y levantar
+          sudo docker compose pull
+          sudo docker compose up -d

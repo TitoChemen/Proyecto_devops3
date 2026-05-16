@@ -1,65 +1,61 @@
 version: '3.8'
 
 services:
-  ventas-db:
+  proyecto-db:
     image: mysql:8.0
+    container_name: mysql_produccion
     environment:
-      MYSQL_DATABASE: db_ventas
-      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: db_ventas_despachos
     ports:
       - "3306:3306"
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  despachos-db:
-    image: mysql:8.0
-    environment:
-      MYSQL_DATABASE: db_despachos
-      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
-    ports:
-      - "3307:3306"
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - red-interna
 
   service-ventas:
-    build: ./back-Ventas_SpringBoot/Springboot-API-REST
+    image: 767398017863.dkr.ecr.us-east-1.amazonaws.com/devops-u2-backend-ventas:latest # <--- URL de tu ECR
+    container_name: api_ventas
     ports:
       - "8080:8080"
     environment:
-      - DB_ENDPOINT=ventas-db
-      - DB_PORT=3306
-      - DB_NAME=db_ventas
-      - DB_USERNAME=root
-      - DB_PASSWORD=${DB_PASSWORD}
+      - SPRING_DATASOURCE_URL=jdbc:mysql://proyecto-db:3306/db_ventas_despachos
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=root
     depends_on:
-      ventas-db:
-        condition: service_healthy
+      - proyecto-db
+    networks:
+      - red-interna
 
   service-despachos:
-    build: ./back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO
+    image: 767398017863.dkr.ecr.us-east-1.amazonaws.com/devops-u2-backend-despachos:latest # <--- URL de tu ECR
+    container_name: api_despachos
     ports:
       - "8081:8081"
     environment:
-      - DB_ENDPOINT=despachos-db
-      - DB_PORT=3306
-      - DB_NAME=db_despachos
-      - DB_USERNAME=root
-      - DB_PASSWORD=${DB_PASSWORD}
+      - SPRING_DATASOURCE_URL=jdbc:mysql://proyecto-db:3306/db_ventas_despachos
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=root
     depends_on:
-      despachos-db:
-        condition: service_healthy
+      - proyecto-db
+    networks:
+      - red-interna
 
   frontend:
-    build: ./front_despacho
+    image: 767398017863.dkr.ecr.us-east-1.amazonaws.com/devops-u2-frontend:latest # <--- URL de tu ECR
+    container_name: web_frontend
     ports:
-      # Nginx usa el puerto 80 por dentro. Exponemos el 3000 por fuera como el profe.
-      - "3000:80"
+      - "80:80"
     depends_on:
       - service-ventas
       - service-despachos
+    networks:
+      - red-interna
+
+volumes:
+  mysql_data:
+
+networks:
+  red-interna:
+    driver: bridge
