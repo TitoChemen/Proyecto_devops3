@@ -1,13 +1,13 @@
 output "vpc_id" {
-  value = aws_vpc.proyec_sem_2_vpc.id
+  value = aws_default_vpc.default.id
 }
 
 output "subnet_1a_id" {
-  value = aws_subnet.public_subnet_1a.id
+  value = aws_default_subnet.default_az1.id
 }
 
 output "subnet_1b_id" {
-  value = aws_subnet.public_subnet_1b.id
+  value = aws_default_subnet.default_az2.id
 }
 
 output "rds_endpoint" {

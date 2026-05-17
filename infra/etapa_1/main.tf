@@ -15,75 +15,21 @@ provider "aws" {
 }
 
 # =================================================================
-# 2. RED (VPC, Subnets, Gateway y Tablas de Ruteo)
+# 2. RED POR DEFECTO DE AWS ACADEMY (Anti-bloqueos)
 # =================================================================
-resource "aws_vpc" "proyec_sem_2_vpc" {
-  cidr_block           = "10.0.0.0/16"
-  enable_dns_hostnames = true
-  enable_dns_support   = true
+resource "aws_default_vpc" "default" {}
 
-  tags = {
-    Name = "proyec-sem-2-vpc"
-  }
+resource "aws_default_subnet" "default_az1" {
+  availability_zone = "us-east-1a"
 }
 
-resource "aws_internet_gateway" "igw" {
-  vpc_id = aws_vpc.proyec_sem_2_vpc.id
-
-  tags = {
-    Name = "proyec-sem-2-igw"
-  }
+resource "aws_default_subnet" "default_az2" {
+  availability_zone = "us-east-1b"
 }
 
-resource "aws_subnet" "public_subnet_1a" {
-  vpc_id                  = aws_vpc.proyec_sem_2_vpc.id
-  cidr_block              = "10.0.1.0/24"
-  availability_zone       = "us-east-1a"
-  map_public_ip_on_launch = true
-
-  tags = {
-    Name = "public-subnet-1a"
-  }
-}
-
-resource "aws_subnet" "public_subnet_1b" {
-  vpc_id                  = aws_vpc.proyec_sem_2_vpc.id
-  cidr_block              = "10.0.2.0/24"
-  availability_zone       = "us-east-1b"
-  map_public_ip_on_launch = true
-
-  tags = {
-    Name = "public-subnet-1b"
-  }
-}
-
-resource "aws_route_table" "public_rt" {
-  vpc_id = aws_vpc.proyec_sem_2_vpc.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.igw.id
-  }
-
-  tags = {
-    Name = "public-route-table"
-  }
-}
-
-resource "aws_route_table_association" "public_assoc_1a" {
-  subnet_id      = aws_subnet.public_subnet_1a.id
-  route_table_id = aws_route_table.public_rt.id
-}
-
-resource "aws_route_table_association" "public_assoc_1b" {
-  subnet_id      = aws_subnet.public_subnet_1b.id
-  route_table_id = aws_route_table.public_rt.id
-}
-
-# Subnet Group para la Base de Datos RDS
 resource "aws_db_subnet_group" "rds_subnet_group" {
   name       = "main-rds-subnet-group"
-  subnet_ids = [aws_subnet.public_subnet_1a.id, aws_subnet.public_subnet_1b.id]
+  subnet_ids = [aws_default_subnet.default_az1.id, aws_default_subnet.default_az2.id]
 
   tags = {
     Name = "Main RDS Subnet Group"
@@ -91,46 +37,23 @@ resource "aws_db_subnet_group" "rds_subnet_group" {
 }
 
 # =================================================================
-# 3. GRUPOS DE SEGURIDAD (Security Groups)
+# 3. GRUPO DE SEGURIDAD (Totalmente abierto para el lab)
 # =================================================================
 resource "aws_security_group" "sg_app" {
   name        = "sg_app_semestral"
-  description = "Permitir SSH, HTTP y puertos de la App"
-  vpc_id      = aws_vpc.proyec_sem_2_vpc.id
+  description = "Permitir todo el trafico en el laboratorio"
+  vpc_id      = aws_default_vpc.default.id
 
   ingress {
-    description = "SSH"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    description = "HTTP"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    description = "Backend Ventas"
-    from_port   = 8081
-    to_port     = 8081
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    description = "Backend Despachos"
-    from_port   = 8080
-    to_port     = 8080
-    protocol    = "tcp"
+    description = "Todo entrante"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
   egress {
+    description = "Todo saliente"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
@@ -142,33 +65,8 @@ resource "aws_security_group" "sg_app" {
   }
 }
 
-resource "aws_security_group" "sg_rds" {
-  name        = "sg_rds_semestral"
-  description = "Permitir conexion a MySQL desde las EC2"
-  vpc_id      = aws_vpc.proyec_sem_2_vpc.id
-
-  ingress {
-    description     = "MySQL desde la subnet"
-    from_port       = 3306
-    to_port         = 3306
-    protocol        = "tcp"
-    security_groups = [aws_security_group.sg_app.id]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name = "sg_rds"
-  }
-}
-
 # =================================================================
-# 4. REGISTROS REPOSITORIOS ECR (Docker Images)
+# 4. REPOSITORIOS ECR (Imágenes Docker)
 # =================================================================
 resource "aws_ecr_repository" "repo_frontend" {
   name                 = "devops-u2-frontend"
@@ -189,12 +87,12 @@ resource "aws_ecr_repository" "repo_despachos" {
 }
 
 # =================================================================
-# 5. INSTANCIAS EC2 (Servidores virtuales)
+# 5. INSTANCIAS EC2
 # =================================================================
 resource "aws_instance" "backend_despachos" {
   ami                    = "ami-0ed9277fb7eb570c9"
   instance_type          = "t2.micro"
-  subnet_id              = aws_subnet.public_subnet_1a.id
+  subnet_id              = aws_default_subnet.default_az1.id
   vpc_security_group_ids = [aws_security_group.sg_app.id]
   key_name               = "vockey"
 
@@ -219,7 +117,7 @@ resource "aws_instance" "backend_despachos" {
 resource "aws_instance" "frontend" {
   ami                    = "ami-0ed9277fb7eb570c9"
   instance_type          = "t2.micro"
-  subnet_id              = aws_subnet.public_subnet_1b.id
+  subnet_id              = aws_default_subnet.default_az2.id
   vpc_security_group_ids = [aws_security_group.sg_app.id]
   key_name               = "vockey"
 
@@ -229,7 +127,7 @@ resource "aws_instance" "frontend" {
 }
 
 # =================================================================
-# 6. BASE DE DATOS RDS (MySQL)
+# 6. BASE DE DATOS RDS
 # =================================================================
 resource "aws_db_instance" "mysql_db" {
   allocated_storage      = 20
@@ -240,6 +138,6 @@ resource "aws_db_instance" "mysql_db" {
   username               = "admin"
   password               = "admin1234"
   db_subnet_group_name   = aws_db_subnet_group.rds_subnet_group.name
-  vpc_security_group_ids = [aws_security_group.sg_rds.id]
+  vpc_security_group_ids = [aws_security_group.sg_app.id]
   skip_final_snapshot    = true
 }

@@ -7,7 +7,7 @@ variable "db_password" {
   description = "Contraseña de la base de datos RDS"
   type        = string
   sensitive   = true
-  default = "basededatos1234567"
+  default     = "basededatos1234567"
 }
 
 variable "db_username" {
@@ -16,6 +16,6 @@ variable "db_username" {
 }
 
 variable "project_name" {
-  description = "Nombre del proyecto para prefijos de recursos"
+  description = "Nombre del proyecto"
   default     = "proyecto-semestral-2"
 }

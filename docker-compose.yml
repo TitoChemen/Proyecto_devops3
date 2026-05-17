@@ -15,7 +15,7 @@ services:
       - red-interna
 
   service-ventas:
-    image: 767398017863.dkr.ecr.us-east-1.amazonaws.com/devops-u2-backend-ventas:latest # <--- URL de tu ECR
+    image: ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/devops-u2-backend-ventas:latest
     container_name: api_ventas
     ports:
       - "8080:8080"
@@ -29,7 +29,7 @@ services:
       - red-interna
 
   service-despachos:
-    image: 767398017863.dkr.ecr.us-east-1.amazonaws.com/devops-u2-backend-despachos:latest # <--- URL de tu ECR
+    image: ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/devops-u2-backend-despachos:latest
     container_name: api_despachos
     ports:
       - "8081:8081"
@@ -43,7 +43,7 @@ services:
       - red-interna
 
   frontend:
-    image: 767398017863.dkr.ecr.us-east-1.amazonaws.com/devops-u2-frontend:latest # <--- URL de tu ECR
+    image: ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/devops-u2-frontend:latest
     container_name: web_frontend
     ports:
       - "80:80"
