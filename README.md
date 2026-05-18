@@ -23,3 +23,38 @@
 volumes:
   mysql_data:
 ```
+
+---
+
+## ⚙️ 3. Optimización de Contenedores (Dockerfile)
+
+Cada microservicio implementa buenas prácticas de Dockerización en sus respectivos archivos para asegurar rendimiento y seguridad:
+
+- [cite_start]**Multi-Stage Build**: Se separó la etapa de construcción de la de ejecución final[cite: 29, 91]. [cite_start]Esto permite que las imágenes en producción sean ultra-livianas (entornos Alpine), reduciendo el consumo de almacenamiento en las instancias t2.micro de AWS[cite: 91, 129, 140].
+- [cite_start]**Principio de Mínimo Privilegio (Usuario No-Root)**: En el servicio de despachos, la imagen no ejecuta sus procesos como `root`[cite: 91, 129]. Se configuró la creación de un grupo y usuario exclusivo sin privilegios:
+  ```dockerfile
+  RUN addgroup -S devopsgroup && adduser -S devopsuser -G devopsgroup
+  USER devopsuser
+  ```
+
+---
+
+## 🚀 4. Pipeline de Integración y Despliegue Continuo (CI/CD)
+
+[cite_start]La automatización completa del ciclo de vida del software está implementada en GitHub Actions mediante el workflow en `.github/workflows/ci.yml`[cite: 39, 104].
+
+### Flujo de Trabajo:
+
+1. [cite_start]**Disparador (Trigger)**: Se activa de manera exclusiva al realizar un `push` sobre la rama `deploy`[cite: 44, 113, 145].
+2. [cite_start]**Etapa de Build & Push**: Autentica de forma segura usando GitHub Secrets (`AWS_ACCESS_KEY_ID`, etc.) [cite: 43, 114, 146][cite_start], compila y publica las imágenes en Amazon ECR[cite: 41, 111, 147].
+3. [cite_start]**Etapa de Deploy (SSH & SCP)**: Conexión segura mediante SSH para transferir el `docker-compose.yml`[cite: 42, 112]. [cite_start]Descarga las nuevas versiones (`docker compose pull`) y levanta los servicios (`docker compose up -d`) en la EC2[cite: 42, 112, 148].
+
+---
+
+## 🏃‍♂️ 5. Instrucciones para Ejecución Local
+
+Para levantar todo el ecosistema de manera local, ejecute en la raíz del proyecto:
+
+```bash
+docker compose up -d --build
+```
