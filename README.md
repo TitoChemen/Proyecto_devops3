@@ -58,3 +58,13 @@ Para levantar todo el ecosistema de manera local, ejecute en la raíz del proyec
 ```bash
 docker compose up -d --build
 ```
+
+---
+
+## 📅 6. Gestión de Proyecto y Cultura DevOps (Trello)
+
+Para la planificación, asignación de tareas y trazabilidad del trabajo en dupla, se aplicaron prácticas de metodologías ágiles mediante un tablero Kanban en Trello. Esto nos permitió gestionar el ciclo de vida del desarrollo (desde la dockerización hasta el despliegue continuo) con total visibilidad.
+
+👉 **[Acceder al Tablero de Trello del Proyecto](https://trello.com/invite/b/69aefef59cf3eab029cee866/ATTI8c958a86b45801b7b99f603c4e2da4c6FC4B08EB/innovatech-sistema-despachos-ventas)**
+
+---
