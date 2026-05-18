@@ -1,70 +1,115 @@
-# 🚀 Sistema de Gestión de Despachos e Infraestructura DevOps - Innovatech Chile
+# 🚀 Aprovisionamiento de Infraestructura y Despliegue Automatizado - Innovatech Chile
 
-[cite_start]Este repositorio contiene la solución contenerizada y el flujo de automatización CI/CD para el despliegue del sistema de la empresa Innovatech Chile, cumpliendo estrictamente con los estándares y requerimientos técnicos exigidos en la Evaluación Parcial N°2[cite: 12, 26].
-
----
-
-## 🛠️ 1. Arquitectura del Stack (Docker Compose)
-
-[cite_start]El stack completo de servicios se administra de forma conjunta y centralizada mediante un archivo `docker-compose.yml`, aislando los componentes en una red interna tipo bridge (`red-interna`)[cite: 30, 92, 139]:
-
-- [cite_start]**`proyecto-db`**: Contenedor con motor de base de datos MySQL 8.0, expuesto internamente en el puerto 3306[cite: 62].
-- **`service-ventas`**: API REST construida en Spring Boot (Java 17), expuesta en el puerto 8080.
-- **`service-despachos`**: API REST construida en Spring Boot (Java 17), expuesta en el puerto 8081.
-- [cite_start]**`frontend`**: Aplicación web SPA montada sobre un servidor de producción optimizado con Nginx, expuesta en el puerto 80[cite: 56].
+Este repositorio contiene el código de Infraestructura como Código (IaC) en Terraform, la configuración de contenedorización con Docker y el pipeline automatizado de CI/CD para el despliegue del sistema de la empresa Innovatech Chile, cumpliendo con los requisitos de la Evaluación Parcial N°2.
 
 ---
 
-## 💾 2. Estrategia de Persistencia de Datos
+## 🗺️ 1. Diagrama de Arquitectura de Red
 
-[cite_start]Para garantizar la continuidad operativa del sistema y evitar la pérdida de información crítica tras el reinicio o la caída de los contenedores, se implementó un **Named Volume (Volumen con nombre)** administrado directamente por el daemon de Docker[cite: 33, 34, 101]:
+El diseño de la infraestructura implementado en AWS asegura el aislamiento de los recursos y el cumplimiento de las políticas de seguridad:
 
-```yaml
+```text
+       [ INTERNET ]
+            │
+            │ (Puerto 80)
+            ▼
+┌──────────────────────────────────────┐
+│ AWS EC2 (Host de Producción)        │
+│                                      │
+│  ┌────────────────────────────────┐  │
+│  │ Docker Engine (Bridge Network) │  │
+│  │                                │  │
+│  │   ┌──────────┐                 │  │
+│  │   │ Frontend │ (Nginx)         │  │
+│  │   └────┬─────┘                 │  │
+│  │        │ (Red Interna)         │  │
+│  │        ▼                       │  │
+│  │   ┌──────────┐   ┌──────────┐  │  │
+│  │   │  APIs    ├──►│  MySQL   │  │  │
+│  │   │ (Spring) │   │  (Vol)   │  │  │
+│  │   └──────────┘   └──────────┘  │  │
+│  └────────────────────────────────┘  │
+└──────────────────────────────────────┘
+
+📁 2. Estructura del Repositorio
+A continuación se detalla la organización de los archivos del proyecto en la rama deploy:
+
+📂 proyecto-semestral-2/
+ ├── 📂 .github/
+ │    └── 📂 workflows/
+ │         └── 📄 ci.yml                  # Pipeline de GitHub Actions (CI/CD)
+ ├── 📂 back-Despachos_SpringBoot/        # Microservicio de Despachos (Backend)
+ │    └── 📄 Dockerfile                   # Multi-stage build (Usuario No-Root)
+ ├── 📂 back-Ventas_SpringBoot/           # Microservicio de Ventas (Backend)
+ │    └── 📄 Dockerfile                   # Multi-stage build optimizado
+ ├── 📂 front_despacho/                   # Aplicación Single Page (Frontend)
+ │    └── 📄 Dockerfile                   # Servidor de producción con Nginx
+ ├── 📂 infra/
+ │    └── 📂 etapa_1/                     # Código de Infraestructura como Código (IaC)
+ │         ├── 📄 main.tf                 # Recursos principales (EC2, SG, VPC)
+ │         ├── 📄 variables.tf            # Variables de configuración
+ │         └── 📄 outputs.tf              # Salidas de datos (IP Pública)
+ ├── 📄 docker-compose.yml                # Orquestación del Stack completo
+ ├── 📄 .gitignore                        # Exclusión de archivos temporales
+ └── 📄 README.md                         # Documentación técnica principal
+
+ 🛠️ 3. Componentes del Stack (Docker Compose)
+El stack de servicios se administra de forma centralizada mediante docker-compose.yml, aislando los componentes en una red interna tipo bridge (red-interna):
+
+proyecto-db: Base de datos MySQL 8.0, expuesta internamente en el puerto 3306.
+
+service-ventas / service-despachos: APIs REST en Spring Boot (Java 17), expuestas en los puertos 8080 y 8081.
+
+frontend: Servidor de producción optimizado con Nginx, expuesto de cara al público en el puerto 80.
+
+💾 4. Estrategia de Persistencia de Datos
+Para garantizar la continuidad operativa y evitar la pérdida de información crítica, se implementó un Named Volume (Volumen con nombre) administrado por Docker:
+
 volumes:
   mysql_data:
-```
+Justificación Técnica:
+Seguridad: Los volúmenes con nombre son gestionados en un directorio exclusivo de Docker dentro del sistema de archivos de Linux, impidiendo alteraciones accidentales desde el Host EC2.
 
----
+Rendimiento: Ofrece una velocidad de lectura/escritura nativa significativamente mayor en entornos cloud en comparación con los montajes de carpetas locales (bind mounts).
 
-## ⚙️ 3. Optimización de Contenedores (Dockerfile)
+⚙️ 5. Optimización de Contenedores (Dockerfile)
+Multi-Stage Build: Se separó la etapa de compilación de la de ejecución final. Esto permite generar imágenes de producción ultra-livianas basadas en Alpine, reduciendo el consumo de almacenamiento y minimizando la superficie de ataque.
 
-Cada microservicio implementa buenas prácticas de Dockerización en sus respectivos archivos para asegurar rendimiento y seguridad:
+Principio de Mínimo Privilegio (Usuario No-Root): En el servicio de despachos, los procesos del contenedor no corren como root. Se configuró un usuario exclusivo sin privilegios del sistema:
 
-- [cite_start]**Multi-Stage Build**: Se separó la etapa de construcción de la de ejecución final[cite: 29, 91]. [cite_start]Esto permite que las imágenes en producción sean ultra-livianas (entornos Alpine), reduciendo el consumo de almacenamiento en las instancias t2.micro de AWS[cite: 91, 129, 140].
-- [cite_start]**Principio de Mínimo Privilegio (Usuario No-Root)**: En el servicio de despachos, la imagen no ejecuta sus procesos como `root`[cite: 91, 129]. Se configuró la creación de un grupo y usuario exclusivo sin privilegios:
-  ```dockerfile
-  RUN addgroup -S devopsgroup && adduser -S devopsuser -G devopsgroup
-  USER devopsuser
-  ```
+Dockerfile
+RUN addgroup -S devopsgroup && adduser -S devopsuser -G devopsgroup
+USER devopsuser
 
----
+🚀 6. Pipeline de Integración y Despliegue Continuo (CI/CD)
+La automatización completa está implementada en GitHub Actions mediante el workflow .github/workflows/ci.yml.
 
-## 🚀 4. Pipeline de Integración y Despliegue Continuo (CI/CD)
+Flujo de Trabajo:
+Trigger: Se activa exclusivamente al realizar un push sobre la rama deploy.
 
-[cite_start]La automatización completa del ciclo de vida del software está implementada en GitHub Actions mediante el workflow en `.github/workflows/ci.yml`[cite: 39, 104].
+Build & Push: Autentica de forma segura usando GitHub Secrets (AWS_ACCESS_KEY_ID, etc.), compila el código y publica las imágenes en Amazon ECR.
 
-### Flujo de Trabajo:
+Deploy: Mediante una conexión remota vía SSH, transfiere el docker-compose.yml, ejecuta docker compose pull y levanta las nuevas versiones en la EC2 de producción sin interrumpir el servicio.
 
-1. [cite_start]**Disparador (Trigger)**: Se activa de manera exclusiva al realizar un `push` sobre la rama `deploy`[cite: 44, 113, 145].
-2. [cite_start]**Etapa de Build & Push**: Autentica de forma segura usando GitHub Secrets (`AWS_ACCESS_KEY_ID`, etc.) [cite: 43, 114, 146][cite_start], compila y publica las imágenes en Amazon ECR[cite: 41, 111, 147].
-3. [cite_start]**Etapa de Deploy (SSH & SCP)**: Conexión segura mediante SSH para transferir el `docker-compose.yml`[cite: 42, 112]. [cite_start]Descarga las nuevas versiones (`docker compose pull`) y levanta los servicios (`docker compose up -d`) en la EC2[cite: 42, 112, 148].
+💻 7. Guía de Despliegue
+Despliegue de Infraestructura (Terraform)
+Para aprovisionar los recursos en AWS, navegue a la carpeta de infraestructura y ejecute:
 
----
+Bash
+cd infra/etapa_1
+terraform init
+terraform plan
+terraform apply -auto-approve
 
-## 🏃‍♂️ 5. Instrucciones para Ejecución Local
+Ejecución Local del Stack (Docker)
+Para levantar todo el ecosistema de microservicios de manera local en su máquina de desarrollo, ejecute en la raíz del proyecto:
 
-Para levantar todo el ecosistema de manera local, ejecute en la raíz del proyecto:
-
-```bash
+Bash
 docker compose up -d --build
+
+📅 8. Gestión de Proyecto y Cultura DevOps (Trello)
+Para la planificación, asignación de tareas y trazabilidad del trabajo en dupla, se aplicaron prácticas de metodologías ágiles mediante un tablero Kanban en Trello.
+
+https://trello.com/invite/b/69aefef59cf3eab029cee866/ATTI8c958a86b45801b7b99f603c4e2da4c6FC4B08EB/innovatech-sistema-despachos-ventas
+
 ```
-
----
-
-## 📅 6. Gestión de Proyecto y Cultura DevOps (Trello)
-
-Para la planificación, asignación de tareas y trazabilidad del trabajo en dupla, se aplicaron prácticas de metodologías ágiles mediante un tablero Kanban en Trello. Esto nos permitió gestionar el ciclo de vida del desarrollo (desde la dockerización hasta el despliegue continuo) con total visibilidad.
-
-👉 **[Acceder al Tablero de Trello del Proyecto](https://trello.com/invite/b/69aefef59cf3eab029cee866/ATTI8c958a86b45801b7b99f603c4e2da4c6FC4B08EB/innovatech-sistema-despachos-ventas)**
-
----
