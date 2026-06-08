@@ -17,6 +17,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }} # <--- AGREGA ESTA LÍNEA
           aws-region: us-east-1
 
       - name: Login a Amazon ECR
@@ -42,3 +43,5 @@ jobs:
           aws eks update-kubeconfig --region us-east-1 --name innovatech-cluster
           sed -i "s|ECR_IMAGE_URI_PLACEHOLDER|$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG|g" ./infra/k8s/frontend.yml
           kubectl apply -f ./infra/k8s/frontend.yml
+          # Corrección: Forzar reinicio de pods para aplicar nueva imagen
+          kubectl rollout restart deployment frontend-app

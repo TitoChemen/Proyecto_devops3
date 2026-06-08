@@ -20,13 +20,27 @@ spec:
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
           env:
-            - name: SPRING_DATASOURCE_URL
-              value: jdbc:mysql://mysql-ventas:3306/ventas_db
-            - name: SPRING_DATASOURCE_USERNAME
-              value: root
-            - name: SPRING_DATASOURCE_PASSWORD
-              value: root
+            - name: DB_ENDPOINT
+              value: "mysql-ventas"
+            - name: DB_PORT
+              value: "3306"
+            - name: DB_NAME
+              value: "ventas_db"
+            - name: DB_USERNAME
+              value: "root"
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-passwords
+                  key: mysql-root-password
 ---
 apiVersion: v1
 kind: Service
