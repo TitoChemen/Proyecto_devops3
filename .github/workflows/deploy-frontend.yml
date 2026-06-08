@@ -5,6 +5,7 @@ on:
     branches: ["deploy"]
     paths:
       - "front_despacho/**"
+      - ".github/workflows/deploy-frontend.yml"
 
 jobs:
   build-and-deploy:
@@ -17,7 +18,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }} # <--- AGREGA ESTA LÍNEA
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: us-east-1
 
       - name: Login a Amazon ECR
