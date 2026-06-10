@@ -1,116 +1,119 @@
-# 🚀 Aprovisionamiento de Infraestructura y Despliegue Automatizado - Innovatech Chile
+# 🚀 Aprovisionamiento de Infraestructura y Despliegue Automatizado - Innovatech Chile (EP3)
 
-Este repositorio contiene el código de Infraestructura como Código (IaC) en Terraform, la configuración de contenedorización con Docker y el pipeline automatizado de CI/CD para el despliegue del sistema de la empresa Innovatech Chile, cumpliendo con los requisitos de la Evaluación Parcial N°2.
+Este repositorio contiene el código de Infraestructura como Código (IaC) en Terraform, la configuración de contenedores y el pipeline automatizado de CI/CD para el despliegue orquestado del sistema de la empresa Innovatech Chile. Este proyecto cumple con los requerimientos avanzados de orquestación en la nube utilizando **Amazon EKS** para la Evaluación Parcial N°3.
 
 ---
 
-## 🗺️ 1. Diagrama de Arquitectura de Red
+## 🗺️ 1. Diagrama de Arquitectura de Red (EKS)
 
-El diseño de la infraestructura implementado en AWS asegura el aislamiento de los recursos y el cumplimiento de las políticas de seguridad:
+El diseño de la infraestructura ha evolucionado desde contenedores en una instancia EC2 única hacia un clúster de Kubernetes altamente disponible y escalable:
 
 ```text
        [ INTERNET ]
             │
             │ (Puerto 80)
             ▼
-┌──────────────────────────────────────┐
-│ AWS EC2 (Host de Producción)        │
-│                                      │
-│  ┌────────────────────────────────┐  │
-│  │ Docker Engine (Bridge Network) │  │
-│  │                                │  │
-│  │   ┌──────────┐                 │  │
-│  │   │ Frontend │ (Nginx)         │  │
-│  │   └────┬─────┘                 │  │
-│  │        │ (Red Interna)         │  │
-│  │        ▼                       │  │
-│  │   ┌──────────┐   ┌──────────┐  │  │
-│  │   │  APIs    ├──►│  MySQL   │  │  │
-│  │   │ (Spring) │   │  (Vol)   │  │  │
-│  │   └──────────┘   └──────────┘  │  │
-│  └────────────────────────────────┘  │
-└──────────────────────────────────────┘
+┌──────────────────────────────────────────────────┐
+│ AWS EKS (innovatech-cluster)                     │
+│                                                  │
+│  ┌────────────────────────────────────────────┐  │
+│  │ LoadBalancer (Servicio Público Frontend)   │  │
+│  └──────┬─────────────────────────────────────┘  │
+│         │ (Tráfico HTTP)                         │
+│         ▼                                        │
+│  ┌──────────────┐   (Red Interna ClusterIP)      │
+│  │  Frontend    │ ────────────────────┐          │
+│  │ (Pods React) │                     ▼          │
+│  └──────────────┘              ┌──────────────┐  │
+│                                │   Backends   │  │
+│  [ Horizontal Pod Autoscaler]  │(Pods Spring) │  │
+│  [   Metrics Server AWS     ]  └──────────────┘  │
+│                                                  │
+└──────────────────────────────────────────────────┘
 
 📁 2. Estructura del Repositorio
-A continuación se detalla la organización de los archivos del proyecto en la rama deploy:
+A continuación se detalla la organización de los archivos del proyecto en la rama deploy
 
-📂 proyecto-semestral-2/
+📂 proyecto-devops3/
  ├── 📂 .github/
  │    └── 📂 workflows/
- │         └── 📄 ci.yml                  # Pipeline de GitHub Actions (CI/CD)
- ├── 📂 back-Despachos_SpringBoot/        # Microservicio de Despachos (Backend)
- │    └── 📄 Dockerfile                   # Multi-stage build (Usuario No-Root)
- ├── 📂 back-Ventas_SpringBoot/           # Microservicio de Ventas (Backend)
- │    └── 📄 Dockerfile                   # Multi-stage build optimizado
- ├── 📂 front_despacho/                   # Aplicación Single Page (Frontend)
- │    └── 📄 Dockerfile                   # Servidor de producción con Nginx
- ├── 📂 infra/
- │    └── 📂 etapa_1/                     # Código de Infraestructura como Código (IaC)
- │         ├── 📄 main.tf                 # Recursos principales (EC2, SG, VPC)
- │         ├── 📄 variables.tf            # Variables de configuración
- │         └── 📄 outputs.tf              # Salidas de datos (IP Pública)
- ├── 📄 docker-compose.yml                # Orquestación del Stack completo
- ├── 📄 .gitignore                        # Exclusión de archivos temporales
+ │         └── 📄 ci.yml                  # Pipeline de GitHub Actions (Build, ECR Push, EKS Deploy)
+ ├── 📂 back-Despachos_SpringBoot/        # Microservicio de Despachos (Backend Java/Spring)
+ ├── 📂 back-Ventas_SpringBoot/           # Microservicio de Ventas (Backend Java/Spring)
+ ├── 📂 front_despacho/                   # Aplicación Single Page (Frontend React)
+ ├── 📂 k8s/                              # Manifiestos de Kubernetes (Opcional/Generados)
+ │    ├── 📄 deployments.yaml             # Configuración de Pods y Réplicas
+ │    ├── 📄 services.yaml                # LoadBalancers y ClusterIPs
+ │    └── 📄 hpa.yaml                     # Horizontal Pod Autoscaler
+ ├── 📂 infra/                            # Código de Infraestructura como Código (IaC)
+ │    ├── 📄 main.tf                      # Recursos principales (EKS, VPC, Subnets, ECR)
+ │    └── 📄 outputs.tf                   # Salidas de datos (Nombre Clúster, URLs Repos)
  └── 📄 README.md                         # Documentación técnica principal
 
- 🛠️ 3. Componentes del Stack (Docker Compose)
-El stack de servicios se administra de forma centralizada mediante docker-compose.yml, aislando los componentes en una red interna tipo bridge (red-interna):
 
-proyecto-db: Base de datos MySQL 8.0, expuesta internamente en el puerto 3306.
+ 🛠️ 3. Componentes del Stack y Orquestación
+El stack de servicios ahora es administrado de forma nativa por Kubernetes, aislando la comunicación interna y exponiendo solo lo necesario:
 
-service-ventas / service-despachos: APIs REST en Spring Boot (Java 17), expuestas en los puertos 8080 y 8081.
+Backends (Ventas y Despachos): APIs REST en Spring Boot, desplegadas como Pods en EKS y comunicadas de forma interna a través de servicios tipo ClusterIP.
 
-frontend: Servidor de producción optimizado con Nginx, expuesto de cara al público en el puerto 80.
+Frontend: Aplicación optimizada expuesta de cara al público mediante un balanceador de carga (LoadBalancer) provisto automáticamente por AWS EKS.
 
-💾 4. Estrategia de Persistencia de Datos
-Para garantizar la continuidad operativa y evitar la pérdida de información crítica, se implementó un Named Volume (Volumen con nombre) administrado por Docker:
+Seguridad (Secrets): Las credenciales sensibles, como las contraseñas de las bases de datos, son inyectadas a los Pods mediante Kubernetes Secrets, evitando la exposición en texto plano en el repositorio.
 
-volumes:
-  mysql_data:
-Justificación Técnica:
-Seguridad: Los volúmenes con nombre son gestionados en un directorio exclusivo de Docker dentro del sistema de archivos de Linux, impidiendo alteraciones accidentales desde el Host EC2.
+⚙️ 4. Escalabilidad y Monitoreo (HPA)
+Para garantizar la disponibilidad ante picos de tráfico, el clúster implementa:
 
-Rendimiento: Ofrece una velocidad de lectura/escritura nativa significativamente mayor en entornos cloud en comparación con los montajes de carpetas locales (bind mounts).
+Metrics Server: Recopila datos de uso de recursos en tiempo real de los nodos y pods.
 
-⚙️ 5. Optimización de Contenedores (Dockerfile)
-Multi-Stage Build: Se separó la etapa de compilación de la de ejecución final. Esto permite generar imágenes de producción ultra-livianas basadas en Alpine, reduciendo el consumo de almacenamiento y minimizando la superficie de ataque.
+Horizontal Pod Autoscaler (HPA): Configurado para escalar automáticamente el número de réplicas de los microservicios si el consumo de CPU o Memoria supera el umbral establecido.
 
-Principio de Mínimo Privilegio (Usuario No-Root): En el servicio de despachos, los procesos del contenedor no corren como root. Se configuró un usuario exclusivo sin privilegios del sistema:
-
-Dockerfile
-RUN addgroup -S devopsgroup && adduser -S devopsuser -G devopsgroup
-USER devopsuser
-
-🚀 6. Pipeline de Integración y Despliegue Continuo (CI/CD)
-La automatización completa está implementada en GitHub Actions mediante el workflow .github/workflows/ci.yml.
+🚀 5. Pipeline de Integración y Despliegue Continuo (CI/CD)
+La automatización completa está implementada en GitHub Actions.
 
 Flujo de Trabajo:
-Trigger: Se activa exclusivamente al realizar un push sobre la rama deploy.
 
-Build & Push: Autentica de forma segura usando GitHub Secrets (AWS_ACCESS_KEY_ID, etc.), compila el código y publica las imágenes en Amazon ECR.
+Trigger: Se activa al realizar un push o merge sobre la rama deploy.
 
-Deploy: Mediante una conexión remota vía SSH, transfiere el docker-compose.yml, ejecuta docker compose pull y levanta las nuevas versiones en la EC2 de producción sin interrumpir el servicio.
+Build & Push a ECR: Compila las imágenes de Docker optimizadas (Multi-stage build) y las publica en los repositorios privados de Amazon ECR.
 
-💻 7. Guía de Despliegue
-Despliegue de Infraestructura (Terraform)
+Deploy a EKS: Actualiza el contexto de kubectl, aplica los manifiestos actualizados y fuerza un reinicio progresivo (Rolling Update) en el clúster sin interrumpir el servicio.
+
+💻 6. Guía de Despliegue Paso a Paso
+A. Despliegue de Infraestructura (Terraform)
 Para aprovisionar los recursos en AWS, navegue a la carpeta de infraestructura y ejecute:
 
-Bash
-cd infra/etapa_1
+cd infra/terraform
 terraform init
 terraform plan
-terraform apply -auto-approve
+terraform apply
 
-Ejecución Local del Stack (Docker)
-Para levantar todo el ecosistema de microservicios de manera local en su máquina de desarrollo, ejecute en la raíz del proyecto:
 
-Bash
-docker compose up -d --build
+B. Conexión y Configuración del Clúster EKS
+Una vez que Terraform termine, conecte su terminal al clúster e instale las dependencias clave:
 
-📅 8. Gestión de Proyecto y Cultura DevOps (Trello)
+# 1. Actualizar Kubeconfig
+aws eks update-kubeconfig --region us-east-1 --name innovatech-cluster
+
+# 2. Crear Secreto de Base de Datos
+kubectl create secret generic db-passwords --from-literal=mysql-root-password=root
+
+# 3. Instalar Metrics Server (Requerido para Autoscaling)
+kubectl apply -f [https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml](https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml)
+
+C. Validación
+Verifique que los servicios estén corriendo y obtenga la URL pública de la aplicación:
+
+kubectl get pods
+kubectl get svc frontend-svc
+
+D. Destrucción del Entorno
+Para no consumir créditos de AWS Academy, elimine la infraestructura al terminar:
+
+terraform destroy --auto-approve
+
+
+📅 7. Gestión de Proyecto y Cultura DevOps (Trello)
 Para la planificación, asignación de tareas y trazabilidad del trabajo en dupla, se aplicaron prácticas de metodologías ágiles mediante un tablero Kanban en Trello.
 
 https://trello.com/invite/b/69aefef59cf3eab029cee866/ATTI8c958a86b45801b7b99f603c4e2da4c6FC4B08EB/innovatech-sistema-despachos-ventas
 
-```
-# Proyecto Innovatech
